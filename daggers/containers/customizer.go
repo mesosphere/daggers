@@ -349,3 +349,38 @@ func WithDockerSocket(ctx context.Context) ContainerCustomizerFn {
 		return c.WithEnvVariable("DOCKER_HOST", "unix://"+path).WithUnixSocket(path, socket), nil
 	}
 }
+
+// WithGithubAuthUsingSSH sets up GitHub authentication in the container using SSH_AUTH_SOCK forwarding.
+func WithGithubAuthUsingSSH(ctx context.Context) ContainerCustomizerFn {
+	return func(runtime *daggers.Runtime, c *dagger.Container) (*dagger.Container, error) {
+		// add github.com to known hosts
+		c = c.WithExec(
+			[]string{
+				"sh", "-c", "mkdir -p /root/.ssh && ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts",
+			},
+		)
+
+		// configure git to use ssh
+		c = c.WithExec(
+			[]string{
+				"sh", "-c", "git config --global url.\"git@github.com:\".insteadOf \"https://github.com/\"",
+			},
+		)
+
+		return c, nil
+	}
+}
+
+// WithGithubAuthUsingToken sets up GitHub authentication in the container using GITHUB_TOKEN.
+func WithGithubAuthUsingToken(_ context.Context) ContainerCustomizerFn {
+	return func(runtime *daggers.Runtime, c *dagger.Container) (*dagger.Container, error) {
+		// configure git to use ssh
+		c = c.WithExec(
+			[]string{
+				"sh", "-c", "git config --global url.https://$GITHUB_TOKEN@github.com/.insteadOf https://github.com/",
+			},
+		)
+
+		return c, nil
+	}
+}
