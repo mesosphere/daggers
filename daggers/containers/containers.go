@@ -52,10 +52,16 @@ func CustomizedContainerFromImage(
 
 	container := ContainerFromImage(runtime, address)
 
+	var envDefaults []ContainerCustomizerFn
+
 	if runtime.IsCI() {
-		// prepend the GHA env variables to make sure they're available in the container before any customizations
-		customizers = append([]ContainerCustomizerFn{WithGitHubEnvs(ctx)}, customizers...)
+		envDefaults = []ContainerCustomizerFn{WithGitHubEnvs(ctx), WithGithubAuthUsingToken(ctx)}
+	} else {
+		envDefaults = []ContainerCustomizerFn{WithSSHSocket(ctx), WithGithubAuthUsingSSH(ctx)}
 	}
+
+	// Prepend the default envs to the customizers to ensure they are applied first.
+	customizers = append(envDefaults, customizers...)
 
 	container, err = ApplyCustomizations(runtime, container, customizers...)
 	if err != nil {
